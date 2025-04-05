@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import guideme.authservice.infrastructure.dto.user.LoginAccessUser;
 import guideme.authservice.infrastructure.dto.user.UserInfoChecker;
 import java.util.Map;
-import java.util.Optional;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -23,10 +21,9 @@ public class UserChecker {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Autowired
-    public UserChecker(ObjectMapper objectMapper) {
+    public UserChecker() {
         this.restTemplate = new RestTemplate();
-        this.objectMapper = objectMapper;
+        this.objectMapper = new ObjectMapper();
     }
 
     public LoginAccessUser getUserInfo(String accessToken) {
@@ -34,6 +31,24 @@ public class UserChecker {
         headers.setBearerAuth(accessToken);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         return getUserInfoAndConvertAccessEntity(entity);
+    }
+
+    // user 회원가입 유무에 따라서 정보를 다르게 전달한다.
+    public UserInfoChecker getUserInfoCheck(LoginAccessUser accessUser) {
+        try {
+            Map<String, Object> body = getUserInfoFromUserService(accessUser);
+            return generateUserInfoChecker(body);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("error from getUserInfoCheck", e);
+        }
+    }
+
+    private Map<String, Object> getUserInfoFromUserService(LoginAccessUser accessUser) {
+        Map<String, Object> body = getRequestBody(accessUser);
+        if (body == null || Boolean.FALSE.equals(body.get("isSuccess"))) {
+            throw new IllegalArgumentException("");
+        }
+        return body;
     }
 
     private LoginAccessUser getUserInfoAndConvertAccessEntity(HttpEntity<Void> entity) {
@@ -49,8 +64,7 @@ public class UserChecker {
     }
 
     private Map<String, Object> getUserSpecificInfo(HttpEntity<Void> entity) {
-        ResponseEntity<Map> response = restTemplate.exchange(USER_INFO_URL,
-                HttpMethod.GET, entity, Map.class);
+        ResponseEntity<Map> response = restTemplate.exchange(USER_INFO_URL, HttpMethod.GET, entity, Map.class);
         return response.getBody();
     }
 
@@ -60,27 +74,14 @@ public class UserChecker {
         return new LoginAccessUser(email, studentId);
     }
 
-    public Optional<UserInfoChecker> getUserInfoCheck(String userEmail) {
-        try {
-            Map<String, Object> body = getRequestBody(userEmail);
-            if (body == null || Boolean.FALSE.equals(body.get("isSuccess"))) {
-                return Optional.empty();
-            }
-            return generateUserInfoChecker(body);
-        } catch (Exception e) {
-            return Optional.empty();
-        }
-    }
-
-    private Map<String, Object> getRequestBody(String userEmail) {
-        String url = USER_SERVICE_URL + "?email=" + userEmail;
+    private Map<String, Object> getRequestBody(LoginAccessUser accessUser) {
+        String url = USER_SERVICE_URL + "?email=" + accessUser.getEmail() + "&student_id=" + accessUser.getStudentId();
         ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, null, Map.class);
         return response.getBody();
     }
 
-    private Optional<UserInfoChecker> generateUserInfoChecker(Map<String, Object> body) {
+    private UserInfoChecker generateUserInfoChecker(Map<String, Object> body) {
         Object data = body.get("data");
-        UserInfoChecker user = objectMapper.convertValue(data, UserInfoChecker.class);
-        return Optional.of(user);
+        return objectMapper.convertValue(data, UserInfoChecker.class);
     }
 }

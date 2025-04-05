@@ -1,5 +1,6 @@
 package guideme.authservice.infrastructure.dto.user;
 
+import jakarta.annotation.Nullable;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -8,9 +9,14 @@ import lombok.Setter;
 @Getter
 @NoArgsConstructor
 public class UserInfoChecker {
-
     private String userId;
-    private String nickname;
     private String email;
-    private int semester;
+    private String userRole;
+    private String studentId;
+
+    @Nullable
+    private String nickname;
+    private Integer semester;
+
+
 }
